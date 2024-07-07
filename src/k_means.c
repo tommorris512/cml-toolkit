@@ -144,6 +144,7 @@ static int update_centroids(KMeans* km, double** X, int num_samples, const int* 
  * A NULL is returned if any dynamic allocations fails, with any already allocated memory freed.
  */
 KMeans* create_k_means(int k, int num_variables) {
+    // Allocate memory for a KMeans model.
     KMeans* km = (KMeans*) malloc(sizeof(KMeans));
 
     if (km == NULL) {
@@ -151,6 +152,7 @@ KMeans* create_k_means(int k, int num_variables) {
         return NULL;
     }
 
+    // Allocate memory for the KMeans model's centroids.
     km->centroids = (double**) malloc(k * sizeof(double*));
 
     if (km->centroids == NULL) {
@@ -160,6 +162,7 @@ KMeans* create_k_means(int k, int num_variables) {
         return NULL;
     }
 
+    // Allocate each centroid as a zeroed point of the specified dimension.
     for (int i = 0; i < k; i++) {
         km->centroids[i] = (double*) calloc(num_variables, sizeof(double));
 
@@ -177,6 +180,7 @@ KMeans* create_k_means(int k, int num_variables) {
         }
     }
 
+    // Assign the remaning parameters to the KMeans model and return it.
     km->k = k;
     km->num_variables = num_variables;
 
