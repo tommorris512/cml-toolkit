@@ -4,6 +4,7 @@
 #include <math.h>
 #include <float.h>
 
+
 /*
  * Helper function to calculate the Euclidean distance between two points of a given dimensionality.
  * Returns the absolute distance between the two points.
@@ -19,6 +20,121 @@ static double calculate_distance(double* a, double* b, int dimensions) {
 
     return sqrt(sum);
 }
+
+
+/*
+ * Assigns each data point in a given sample to the KMeans model's closest centroid.
+ * Updates the labels array with the index of the closest centroid for each data point.
+ *
+ * Iterates over each data point with an initially infinite minimal distance.
+ * The Euclidean distance is calculated between the data point and each centroid to locate the minima.
+ * The closest centroid's label is assigned to the data points corresponding position in the labels array.
+ */
+static void assign_labels(const KMeans* km, double** X, int num_samples, int* labels) {
+    for (int i = 0; i < num_samples; i++) {
+        // Initially set the minimum distance to the maximum double value (acting as infinity).
+        double min_distance = DBL_MAX;
+        int label = 0;
+
+        // Obtain the minimal cluster index and assign it as the data point's label.
+        for (int j = 0; j < km->k; j++) {
+            double distance = calculate_distance(X[i], km->centroids[j], km->num_variables);
+
+            if (distance < min_distance) {
+                min_distance = distance;
+                label = j;
+            }
+        }
+
+        labels[i] = label;
+    }
+}
+
+
+/*
+ * Updates the centroids of the KMeans model based on the current cluster assignments.
+ * Calculates the new centroids by averaging the data points assigned to a particular cluster.
+ * Returns EXIT_SUCCESS on completion, and EXIT_FAILURE otherwise.
+ * 
+ * Dynamically allocates memory for a summation array that stores the accumulation of a cluster's data points.
+ * Also dynamically allocates memory for a counting array that holds the quantity the data points belonging to each cluster.
+ * At any point, if a dynamic allocation fails, the allocated memory is freed and the functions returns a failure exit value.
+ * Iterates over the samples and accumulates the data points and the quantity of them belonging to each cluster.
+ * Computes the new centroid locations by averaging the accumulated summations according to the corresponding quantities.
+ * Updates the centroid locations in the KMeans model with these new computed locations.
+ * Once the update has completed, the allocated memory is freed and the function returns a success exit value.
+ */
+static int update_centroids(KMeans* km, double** X, int num_samples, const int* labels) {
+    // Allocate memory for the summation array.
+    double** sum = (double**) calloc(km->k, sizeof(double*));
+
+    if (sum == NULL) {
+        fprintf(stderr, "Error: Failed to allocate memory for cluster summation array\n");
+        free(sum);
+
+        return EXIT_FAILURE;
+    }
+
+    // Allocate memory for the quantity array.
+    int* count = (int*) calloc(km->k, sizeof(int));
+
+    if (count == NULL) {
+        fprintf(stderr, "Error: Failed to allocate memory for cluster quantity array\n");
+        free(sum);
+        free(count);
+
+        return EXIT_FAILURE;
+    }
+
+    // Populate the summation array with zeroed data point for each cluster.
+    for (int i = 0; i < km->k; i++) {
+        sum[i] = (double*) calloc(km->num_variables, sizeof(double));
+
+        if (sum[i] == NULL) {
+            fprintf(stderr, "Error: Failed to allocate memory for sum %d\n", i);
+
+            for (int j = 0; j < i; j++) {
+                free(sum[j]);
+            }
+
+            free(sum);
+            free(count);
+
+            return EXIT_FAILURE;
+        }
+    }
+
+    // Iterate over each data point to accumulate the cluster summations.
+    for (int i = 0; i < num_samples; i++) {
+        int label = labels[i];
+
+        for (int j = 0; j < km->num_variables; j++) {
+            sum[label][j] += X[i][j];
+        }
+
+        count[label]++;
+    }
+
+    // Update the centroids by calculating and assigning their new locations.
+    for (int i = 0; i < km->k; i++) {
+        if (count[i] > 0) {
+            for (int j = 0; j < km->num_variables; j++) {
+                km->centroids[i][j] = sum[i][j] / count[i];
+            }
+        }
+    }
+
+    // Free the dynamically allocated memory used.
+    for (int i = 0; i < km->k; i++) {
+        free(sum[i]);
+    }
+
+    free(sum);
+    free(count);
+
+    return EXIT_SUCCESS;
+}
+
 
 /*
  * Creates a new KMeans for a specified number of clusters and features.
@@ -38,8 +154,9 @@ KMeans* create_k_means(int k, int num_variables) {
     km->centroids = (double**) malloc(k * sizeof(double*));
 
     if (km->centroids == NULL) {
-        free(km);
         fprintf(stderr, "Error: Failed to allocate sufficient memory for KMeans model\n");
+        free(km);
+
         return NULL;
     }
 
@@ -47,6 +164,8 @@ KMeans* create_k_means(int k, int num_variables) {
         km->centroids[i] = (double*) calloc(num_variables, sizeof(double));
 
         if (km->centroids[i] == NULL) {
+            fprintf(stderr, "Error: Failed to allocate sufficient memory for KMeans model\n");
+
             for (int j = 0; j < i; j++) {
                 free(km->centroids[i]);
             }
@@ -54,7 +173,6 @@ KMeans* create_k_means(int k, int num_variables) {
             free(km->centroids);
             free(km);
 
-            fprintf(stderr, "Error: Failed to allocate sufficient memory for KMeans model\n");
             return NULL;
         }
     }
@@ -64,6 +182,41 @@ KMeans* create_k_means(int k, int num_variables) {
 
     return km;
 }
+
+
+/*
+ * Fits (trains) the KMeans model to the given data points.
+ * Performs the k-means clustering algorithm for a specified number of iterations.
+ *
+ * Dynamically allocates memory for the labels array, which stores the cluster assignment for each data point.
+ * Each iteration assigns the data point to the nearest centroid and then updates the centroids based on the current cluster assigments.
+ * At any point, if a dynamic allocation fails, the allocated memory is freed and the functions exits.
+ * Upon successful fitting, the dynamically allocated labels array is freed.
+ */
+void fit_k_means(KMeans* km, double** X, int num_samples, int num_iterations) {
+    // Allocate memory for labels to store the cluster assignment to each data point.
+    int* labels = (int*) malloc(num_samples * sizeof(int));
+
+    if (labels == NULL) {
+        fprintf(stderr, "Error: Failed to allocate memory for labels\n");
+        return;
+    }
+
+    // Perform the k-means clustering algorithm for the specified iteration count.
+    for (int iteration = 0; iteration < num_iterations; iteration++) {
+        // Assign each data point to its nearest centroid's label.
+        assign_labels(km, X, num_samples, labels);
+
+        // Update the centroids on the new cluster assignments and exit if this fails.
+        if (update_centroids(km, X, num_samples, labels) != EXIT_SUCCESS) {
+            free(labels);
+            return;
+        }
+    }
+
+    free(labels);
+}
+
 
 /*
  * Predicts the cluster for a data point based on the KMeans model.
@@ -78,7 +231,7 @@ int predict_k_means(KMeans* km, double* X) {
     double min_distance = DBL_MAX;
     int cluster = 0;
 
-    // Obtain the minimal cluster index
+    // Obtain the minimal cluster index.
     for (int i = 0; i < km->k; i++) {
         double distance = calculate_distance(X, km->centroids[i], km->num_variables);
 
@@ -90,6 +243,7 @@ int predict_k_means(KMeans* km, double* X) {
 
     return cluster;
 }
+
 
 /*
  * Frees the dynamically allocated memory used by the KMeans model.
