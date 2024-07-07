@@ -4,6 +4,21 @@
 #include <math.h>
 #include <float.h>
 
+/*
+ * Helper function to calculate the Euclidean distance between two points of a given dimensionality.
+ * Returns the absolute distance between the two points.
+ *
+ * Sums the squared difference of each dimension and returns the square root of that summation.
+ */
+static double calculate_distance(double* a, double* b, int dimensions) {
+    double sum = 0.0;
+
+    for (int i = 0; i < dimensions; ++i) {
+        sum += pow(a[i] - b[i], 2);
+    }
+
+    return sqrt(sum);
+}
 
 /*
  * Creates a new KMeans for a specified number of clusters and features.
@@ -48,6 +63,32 @@ KMeans* create_k_means(int k, int num_variables) {
     km->num_variables = num_variables;
 
     return km;
+}
+
+/*
+ * Predicts the cluster for a data point based on the KMeans model.
+ * Returns the index of the cluster nearest the data point.
+ *
+ * Iterates over all centroidsto find the closest centroid to the supplied data point.
+ * The closest centroid is found by calculating the Euclidean distance between each centroid and the data point, and selecting the minima.
+ * The index of the centroid with minimal distance from the data point is returned.
+ */
+int predict_k_means(KMeans* km, double* X) {
+    // Initially set the minimum distance to the maximum double value (acting as infinity).
+    double min_distance = DBL_MAX;
+    int cluster = 0;
+
+    // Obtain the minimal cluster index
+    for (int i = 0; i < km->k; i++) {
+        double distance = calculate_distance(X, km->centroids[i], km->num_variables);
+
+        if (distance < min_distance) {
+            min_distance = distance;
+            cluster = i;
+        }
+    }
+
+    return cluster;
 }
 
 /*
