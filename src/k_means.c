@@ -255,6 +255,8 @@ int predict_k_means(KMeans* km, double* X) {
  * Ensures that the model is non-null and deallocates its centroid array, followed by the model itself.
  */
 void free_k_means(KMeans* km) {
+    if (km == NULL) return;
+
     for (int i = 0; i < km->k; ++i) {
         free(km->centroids[i]);
     }
