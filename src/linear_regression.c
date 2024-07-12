@@ -93,8 +93,8 @@ double predict_linear_regression(LinearRegression* lr, double* X) {
  * Ensures that the model is non-null and deallocates its weights array, followed by the model itself.
  */
 void free_linear_regression(LinearRegression* lr) {
-    if (lr != NULL) {
-        free(lr->weights);
-        free(lr);
-    }
+    if (lr == NULL) return;
+
+    free(lr->weights);
+    free(lr);
 }
