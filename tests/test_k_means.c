@@ -16,6 +16,11 @@
 #define DEFAULT_NUM_VARIABLES 2
 
 /*
+ * The default range of the initial centroids.
+ */
+#define DEFAULT_INITIAL_CENTROID_RANGE 10.0
+
+/*
  * The model to use during tests.
  */
 static KMeans* km;
@@ -39,7 +44,7 @@ static int total_count = 0;
  * Setup function to run prior to each test.
  */
 void setup() {
-    km = create_k_means(DEFAULT_NUM_CLUSTERS, DEFAULT_NUM_VARIABLES);
+    km = create_k_means(DEFAULT_NUM_CLUSTERS, DEFAULT_NUM_VARIABLES, DEFAULT_INITIAL_CENTROID_RANGE);
     total_count++;
 }
 
@@ -73,14 +78,34 @@ int create_k_means_is_non_null() {
 }
 
 /*
- * Checks that the KMeans constructor initializes centroids to zero.
+ * Checks that the KMeans constructor initializes centroids to a random value within the specified range.
  */
-int create_k_means_initializes_centroids_to_zero() {
+int create_k_means_initialises_centroids_to_random_values() {
     for (int i = 0; i < DEFAULT_NUM_CLUSTERS; i++) {
         for (int j = 0; j < DEFAULT_NUM_VARIABLES; j++) {
-            assert(fabs(km->centroids[i][j]) < EPSILON);
+            assert(fabs(km->centroids[i][j]) <= DEFAULT_INITIAL_CENTROID_RANGE);
         }
     }
+
+    return TEST_SUCCESS;
+}
+
+/*
+ * Checks that the KMeans constructor initializes centroids to a random value within the specified range.
+ */
+int create_k_means_fails_on_zero_range() {
+    km = create_k_means(DEFAULT_NUM_CLUSTERS, DEFAULT_NUM_VARIABLES, 0);
+    assert(km == NULL);
+
+    return TEST_SUCCESS;
+}
+
+/*
+ * Checks that the KMeans constructor initializes centroids to a random value within the specified range.
+ */
+int create_k_means_fails_on_negative_range() {
+    km = create_k_means(DEFAULT_NUM_CLUSTERS, DEFAULT_NUM_VARIABLES, -DEFAULT_INITIAL_CENTROID_RANGE);
+    assert(km == NULL);
 
     return TEST_SUCCESS;
 }
@@ -169,7 +194,9 @@ int main() {
 
     // Run the tests
     run_test(create_k_means_is_non_null);
-    run_test(create_k_means_initializes_centroids_to_zero);
+    run_test(create_k_means_initialises_centroids_to_random_values);
+    run_test(create_k_means_fails_on_zero_range);
+    run_test(create_k_means_fails_on_negative_range);
     run_test(k_means_can_train);
     run_test(k_means_can_predict);
     run_test(free_null_k_means);
