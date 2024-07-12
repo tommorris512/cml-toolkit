@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <float.h>
+#include <time.h>
 
 
 /*
@@ -140,10 +141,21 @@ static int update_centroids(KMeans* km, double** X, int num_samples, const int* 
  * Creates a new KMeans for a specified number of clusters and features.
  * Returns a pointer to a new KMeans on success and NULL on failure.
  *
- * Dynamically allocates memory for a KMeans struct and the subsequent centroid array of points (with each point zeroed).
+ * Dynamically allocates memory for a KMeans struct and the subsequent centroid array of points.
+ * Each centroid's initial value is randomly set within the provided range.
  * A NULL is returned if any dynamic allocations fails, with any already allocated memory freed.
+ * A NULL is also returned if the initial centroid range provided is non-positive.
  */
-KMeans* create_k_means(int k, int num_variables) {
+KMeans* create_k_means(int k, int num_variables, double initial_centroid_range) {
+    // Ensure the initial range is positive.
+    if (initial_centroid_range <= 0) {
+        fprintf(stderr, "Error: Initial centroid range must be a positive value\n");
+        return NULL;
+    }
+
+    // Seed the random generator using the current system time.
+    srand(time(NULL));
+
     // Allocate memory for a KMeans model.
     KMeans* km = (KMeans*) malloc(sizeof(KMeans));
 
@@ -162,9 +174,9 @@ KMeans* create_k_means(int k, int num_variables) {
         return NULL;
     }
 
-    // Allocate each centroid as a zeroed point of the specified dimension.
+    // Allocate each centroid as a random point of the specified dimension.
     for (int i = 0; i < k; i++) {
-        km->centroids[i] = (double*) calloc(num_variables, sizeof(double));
+        km->centroids[i] = (double*) malloc(num_variables * sizeof(double));
 
         if (km->centroids[i] == NULL) {
             fprintf(stderr, "Error: Failed to allocate sufficient memory for KMeans model\n");
@@ -177,6 +189,11 @@ KMeans* create_k_means(int k, int num_variables) {
             free(km);
 
             return NULL;
+        }
+
+        // Initialise each centroid as a random point within the specified range.
+        for (int j = 0; j < num_variables; j++) {
+            km->centroids[i][j] = (rand() / (double) RAND_MAX) * (2 * initial_centroid_range) - initial_centroid_range;
         }
     }
 

@@ -16,7 +16,7 @@ typedef struct {
  * Creates a new KMeans for a specified number of clusters and features.
  * Returns a pointer to a new KMeans on success and NULL on failure.
  */
-KMeans* create_k_means(int k, int num_variables);
+KMeans* create_k_means(int k, int num_variables, double initial_centroid_range);
 
 /*
  * Fits the KMeans model to a series of data samples.
