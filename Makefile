@@ -1,57 +1,45 @@
-# Define directories
-SRC_DIR = src
-TEST_DIR = tests
-BUILD_DIR = build
-
-# Define source files
-SRC_FILES = $(SRC_DIR)/linear_regression.c $(SRC_DIR)/k_means.c
-TEST_FILES = $(TEST_DIR)/test_linear_regression.c $(TEST_DIR)/test_k_means.c
-
-# Define object and executable files
-OBJ_FILES = $(BUILD_DIR)/linear_regression.o $(BUILD_DIR)/k_means.o
-TEST_OBJ_FILES = $(BUILD_DIR)/test_linear_regression.o $(BUILD_DIR)/test_k_means.o
-TEST_EXEC_LINEAR_REGRESSION = $(BUILD_DIR)/test_linear_regression
-TEST_EXEC_K_MEANS = $(BUILD_DIR)/test_k_means
-
 # Compiler and flags
 CC = clang
-CFLAGS = -Wall -Wextra -Isrc -Itests
-LDFLAGS = -lm
+CFLAGS = -Wall -Wextra -I./src
 
-# Build all test targets
-tests: $(TEST_EXEC_LINEAR_REGRESSION) $(TEST_EXEC_K_MEANS)
+# Directories
+SRC_DIR = src
+BUILD_DIR = build
+TEST_DIR = tests
+INCLUDE_DIR = src
 
-# Build the test executables
-# Linear Regression Test Executable
-$(TEST_EXEC_LINEAR_REGRESSION): $(OBJ_FILES) $(BUILD_DIR)/test_linear_regression.o
-	$(CC) $(OBJ_FILES) $(BUILD_DIR)/test_linear_regression.o -o $@ $(LDFLAGS)
+# Source and object files
+SRC_FILES = $(wildcard $(SRC_DIR)/*.c)
+OBJ_FILES = $(SRC_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-# K Means Test Executable
-$(TEST_EXEC_K_MEANS): $(OBJ_FILES) $(BUILD_DIR)/test_k_means.o
-	$(CC) $(OBJ_FILES) $(BUILD_DIR)/test_k_means.o -o $@ $(LDFLAGS)
+# Library names
+STATIC_LIB = $(BUILD_DIR)/libcml.a
+SHARED_LIB = $(BUILD_DIR)/libcml.so
 
-# Compile the src object files
-# Linear Regression Source
-$(BUILD_DIR)/linear_regression.o: $(SRC_DIR)/linear_regression.c
-	mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+# Targets
+all: staticlib sharedlib
 
-# K Means Source
-$(BUILD_DIR)/k_means.o: $(SRC_DIR)/k_means.c
-	mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+# Build the static library
+staticlib: $(OBJ_FILES)
+	ar rcs $(STATIC_LIB) $(OBJ_FILES)
 
-# Compile the test object files
-# Linear Regression Test
-$(BUILD_DIR)/test_linear_regression.o: $(TEST_DIR)/test_linear_regression.c
-	mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+# Build the shared library
+sharedlib: $(OBJ_FILES)
+	$(CC) -shared -o $(SHARED_LIB) $(OBJ_FILES)
 
-# K Means Test
-$(BUILD_DIR)/test_k_means.o: $(TEST_DIR)/test_k_means.c
-	mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+# Compile object files
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	$(CC) $(CFLAGS) -fPIC -c $< -o $@
 
-# Clean up build directory
+# Clean build directory
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -f $(BUILD_DIR)/*.o $(STATIC_LIB) $(SHARED_LIB)
+
+# Test targets
+test: all
+	$(CC) $(CFLAGS) $(TEST_DIR)/test_k_means.c $(STATIC_LIB) -o $(BUILD_DIR)/test_k_means
+	$(CC) $(CFLAGS) $(TEST_DIR)/test_linear_regression.c $(STATIC_LIB) -o $(BUILD_DIR)/test_linear_regression
+	$(BUILD_DIR)/test_k_means
+	$(BUILD_DIR)/test_linear_regression
+
+.PHONY: all staticlib sharedlib clean test
